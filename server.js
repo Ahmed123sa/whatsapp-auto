@@ -7,12 +7,11 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// WhatsApp configuration - Update these numbers with your actual WhatsApp numbers
-const ADMIN_NUMBER = "201012345678@c.us"; // صاحب المطبعة
-const DESIGNERS = [
-  "201098765432@c.us", // المصمم الأول
-  "201011111111@c.us", // المصمم الثاني (اختياري)
-];
+// WhatsApp configuration - Can be set via environment variables or defaults
+const ADMIN_NUMBER = process.env.ADMIN_NUMBER || "201012345678@c.us";
+const DESIGNERS = process.env.DESIGNERS
+  ? process.env.DESIGNERS.split(",").map((d) => d.trim())
+  : ["201098765432@c.us", "201011111111@c.us"];
 
 // Initialize WhatsApp client
 const client = new Client();
