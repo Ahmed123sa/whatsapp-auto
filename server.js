@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // WhatsApp configuration - Update these numbers with your actual WhatsApp numbers
 const ADMIN_NUMBER = "201012345678@c.us"; // صاحب المطبعة
@@ -134,20 +134,28 @@ app.post("/create-group", async (req, res) => {
   }
 });
 
+// Health check endpoint for Railway
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    whatsappReady: client.info ? true : false,
+  });
+});
+
 // Root endpoint - serve the HTML page
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// Start server after WhatsApp client is ready
-client
-  .initialize()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-      console.log("Open your browser and go to http://localhost:3000");
-    });
-  })
-  .catch((error) => {
-    console.error("Failed to initialize WhatsApp client:", error);
-  });
+// Start server immediately (don't wait for WhatsApp)
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+});
+
+// Initialize WhatsApp client separately
+client.initialize().catch((error) => {
+  console.error("Failed to initialize WhatsApp client:", error);
+  console.log("Server will continue running without WhatsApp functionality");
+});

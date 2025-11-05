@@ -125,6 +125,38 @@ AutoGroup-WhatsApp-Connector/
 - لا تشارك رمز QR مع أي شخص
 - احتفظ بأرقام الهواتف آمنة
 
+## النشر على Railway (مجاني)
+
+### إعداد النشر التلقائي:
+
+1. **اذهب إلى:** https://railway.app
+2. **سجل حساب جديد** (لا يحتاج بطاقة ائتمان)
+3. **انقر "New Project"**
+4. **اختر "Deploy from GitHub repo"**
+5. **ابحث عن `whatsapp-auto`** واختره
+6. **انقر "Deploy"**
+
+### مراقبة النشر:
+
+- **Deploy Logs:** لمراقبة عملية النشر
+- **Health Check:** `https://your-app.railway.app/health`
+- **Application URL:** `https://your-app.railway.app`
+
+### إعداد WhatsApp في Railway:
+
+بعد النشر، ستحتاج لإعداد WhatsApp:
+
+1. **اذهب إلى Deploy Logs** في Railway
+2. **ابحث عن رمز QR** في السجلات
+3. **امسح الرمز** بتطبيق WhatsApp على هاتفك
+4. **انتظر رسالة "WhatsApp client is ready!"**
+
+### استكشاف أخطاء Railway:
+
+- **Application failed to respond:** تحقق من `/health` endpoint
+- **WhatsApp not working:** أعد مسح رمز QR
+- **Port issues:** المنفذ يتم تعيينه تلقائياً
+
 ## الترخيص
 
 هذا المشروع مفتوح المصدر ومتاح للاستخدام التجاري والشخصي.
@@ -136,6 +168,7 @@ AutoGroup-WhatsApp-Connector/
 1. رسائل الخطأ في الكونسول
 2. ملف `database.json` للبيانات
 3. اتصال الإنترنت وحالة WhatsApp
+4. Railway deploy logs
 
 ---
 
