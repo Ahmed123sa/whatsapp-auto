@@ -107,14 +107,18 @@ function formatWhatsAppNumber(phone) {
   // Remove any non-numeric characters except +
   let cleanPhone = phone.replace(/[^\d+]/g, "");
 
-  // If starts with +, remove it and assume international
+  // If starts with +, remove it and treat as international
   if (cleanPhone.startsWith("+")) {
     cleanPhone = cleanPhone.substring(1);
-  }
-
-  // If doesn't start with country code, assume Egypt (20)
-  if (!cleanPhone.startsWith("20")) {
-    cleanPhone = "20" + cleanPhone;
+  } else {
+    // If starts with 0, remove it (Egyptian local format)
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = cleanPhone.substring(1);
+    }
+    // If doesn't start with country code, assume Egypt (20)
+    if (!cleanPhone.startsWith("20")) {
+      cleanPhone = "20" + cleanPhone;
+    }
   }
 
   return cleanPhone + "@c.us";
@@ -151,7 +155,10 @@ app.post("/create-group", async (req, res) => {
     console.log("Participants:", participants);
 
     // Create group with settings to allow all members to send messages
-    const group = await client.createGroup(groupName, participants);
+    const group = await client.createGroup(groupName, participants, {
+      restrict: false, // Allow all members to edit group info
+      announce: false, // Allow all members to send messages
+    });
     console.log("Group created with ID:", group.id._serialized);
 
     // Try to set group settings to allow all members to send messages
