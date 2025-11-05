@@ -13,6 +13,10 @@ const DESIGNERS = process.env.DESIGNERS
   ? process.env.DESIGNERS.split(",").map((d) => d.trim())
   : ["201098765432@c.us", "201011111111@c.us"];
 
+console.log("Environment variables loaded:");
+console.log("ADMIN_NUMBER:", ADMIN_NUMBER ? "Set" : "Not set");
+console.log("DESIGNERS:", DESIGNERS.length > 0 ? "Set" : "Not set");
+
 let currentQR = null;
 
 // Initialize WhatsApp client
