@@ -143,6 +143,7 @@ app.post("/create-group", async (req, res) => {
 
     // Format client phone number
     const clientNumber = formatWhatsAppNumber(phone);
+    console.log("Formatted phone number:", clientNumber);
 
     // Generate random ID for group
     const randomId = Math.random().toString(36).substring(2, 8);
@@ -161,68 +162,93 @@ app.post("/create-group", async (req, res) => {
     });
     console.log("Group created with ID:", group.id._serialized);
 
-    // Try to set group settings to allow all members to send messages
-    try {
-      // Check if the method exists and call it
-      if (typeof group.setMessagesAdminsOnly === "function") {
-        await group.setMessagesAdminsOnly(false);
-        console.log("Group settings updated: all members can send messages");
-      } else {
-        console.warn("setMessagesAdminsOnly method not available");
-      }
-    } catch (settingsError) {
-      console.warn("Could not update group settings:", settingsError.message);
-      // Try alternative method if available
-      try {
-        if (typeof group.updateSettings === "function") {
-          await group.updateSettings({ messagesAdminsOnly: false });
-          console.log("Group settings updated using updateSettings");
-        }
-      } catch (altError) {
-        console.warn(
-          "Alternative settings update also failed:",
-          altError.message
-        );
-      }
-      // Continue anyway, as the group was created successfully
-    }
-
-    // Try to send welcome message (don't fail if this fails)
-    try {
-      const welcomeMessage =
-        "مرحباً! هذا الجروب مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.";
-      await client.sendMessage(group.id._serialized, welcomeMessage);
-      console.log("Welcome message sent successfully");
-    } catch (messageError) {
-      console.warn("Could not send welcome message:", messageError.message);
-      // Continue anyway, as the group was created successfully
-    }
-
-    // Try to save to database (don't fail if this fails)
-    try {
-      const database = loadDatabase();
-      const groupData = {
-        id: group.id._serialized,
-        name: groupName,
-        participants: participants,
-        createdAt: new Date().toISOString(),
-        clientNumber: clientNumber,
-      };
-      database.push(groupData);
-      saveDatabase(database);
-      console.log("Group data saved to database");
-    } catch (dbError) {
-      console.warn("Could not save to database:", dbError.message);
-      // Continue anyway, as the group was created successfully
-    }
-
-    console.log("Group created successfully:", groupName);
-
+    // Return success immediately after group creation
     res.json({
       success: true,
       message: "تم إنشاء الجروب بنجاح! يمكن لجميع الأعضاء إرسال الرسائل.",
       groupId: group.id._serialized,
       groupName: groupName,
+    });
+
+    // Handle post-creation tasks asynchronously (don't block the response)
+    setImmediate(async () => {
+      try {
+        // Try multiple approaches to set group permissions
+        console.log("Attempting to set group permissions...");
+
+        // Method 1: Try setMessagesAdminsOnly
+        try {
+          if (typeof group.setMessagesAdminsOnly === "function") {
+            await group.setMessagesAdminsOnly(false);
+            console.log("✓ Group permissions set using setMessagesAdminsOnly");
+          }
+        } catch (error) {
+          console.warn("✗ setMessagesAdminsOnly failed:", error.message);
+        }
+
+        // Method 2: Try updateSettings
+        try {
+          if (typeof group.updateSettings === "function") {
+            await group.updateSettings({
+              restrict: false,
+              announce: false,
+              messagesAdminsOnly: false,
+            });
+            console.log("✓ Group permissions set using updateSettings");
+          }
+        } catch (error) {
+          console.warn("✗ updateSettings failed:", error.message);
+        }
+
+        // Method 3: Try setting permissions directly on group object
+        try {
+          if (group.announce !== undefined) {
+            group.announce = false;
+            console.log("✓ Group announce property set to false");
+          }
+          if (group.restrict !== undefined) {
+            group.restrict = false;
+            console.log("✓ Group restrict property set to false");
+          }
+        } catch (error) {
+          console.warn("✗ Direct property setting failed:", error.message);
+        }
+
+        // Try to send welcome message
+        try {
+          const welcomeMessage =
+            "مرحباً! هذا الجروب مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.";
+          await client.sendMessage(group.id._serialized, welcomeMessage);
+          console.log("✓ Welcome message sent successfully");
+        } catch (messageError) {
+          console.warn(
+            "✗ Could not send welcome message:",
+            messageError.message
+          );
+        }
+
+        // Try to save to database
+        try {
+          const database = loadDatabase();
+          const groupData = {
+            id: group.id._serialized,
+            name: groupName,
+            participants: participants,
+            createdAt: new Date().toISOString(),
+            clientNumber: clientNumber,
+          };
+          database.push(groupData);
+          saveDatabase(database);
+          console.log("✓ Group data saved to database");
+        } catch (dbError) {
+          console.warn("✗ Could not save to database:", dbError.message);
+        }
+
+        console.log("Post-creation tasks completed for group:", groupName);
+      } catch (postCreationError) {
+        console.error("Error in post-creation tasks:", postCreationError);
+        // Don't send error response here as we already responded with success
+      }
     });
   } catch (error) {
     console.error("Error creating group:", error);
