@@ -1,0 +1,22 @@
+{
+  "name": "autogroup-whatsapp-connector",
+  "version": "1.0.0",
+  "description": "Auto WhatsApp Group Creator for clients",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "whatsapp-web.js": "^1.23.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "keywords": [
+    "whatsapp",
+    "automation",
+    "group",
+    "connector"
+  ],
+  "author": "",
+  "license": "ISC"
+}
