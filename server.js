@@ -51,6 +51,11 @@ client.on("qr", (qr) => {
   console.log("QR code generated and stored for admin panel");
 });
 
+// When client is authenticated
+client.on("authenticated", () => {
+  console.log("WhatsApp client authenticated!");
+});
+
 // When client is ready
 client.on("ready", () => {
   console.log("WhatsApp client is ready!");
@@ -193,9 +198,10 @@ app.get("/health", (req, res) => {
 // WhatsApp status API for admin panel
 app.get("/api/whatsapp-status", (req, res) => {
   res.json({
-    ready: client.info ? true : false,
+    ready: clientReady || (client.info ? true : false),
     qr: currentQR,
     info: client.info || null,
+    state: client.state || "UNKNOWN",
   });
 });
 
