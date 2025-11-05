@@ -1,5 +1,5 @@
 const express = require("express");
-const { Client } = require("whatsapp-web.js");
+const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const fs = require("fs");
 const path = require("path");
@@ -18,30 +18,62 @@ console.log("ADMIN_NUMBER:", ADMIN_NUMBER ? "Set" : "Not set");
 console.log("DESIGNERS:", DESIGNERS.length > 0 ? "Set" : "Not set");
 
 let currentQR = null;
+let clientReady = false;
 
-// Initialize WhatsApp client
-const client = new Client();
+// Initialize WhatsApp client with LocalAuth for session persistence
+const client = new Client({
+  authStrategy: new LocalAuth({
+    clientId: "whatsapp-session",
+    dataPath: path.join(__dirname, ".wwebjs_auth"),
+  }),
+  puppeteer: {
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--single-process",
+      "--disable-gpu",
+    ],
+  },
+});
 
 // Generate QR code for authentication
 client.on("qr", (qr) => {
   console.log("Scan this QR code with WhatsApp:");
   qrcode.generate(qr, { small: true });
   currentQR = qr;
+  clientReady = false;
+  console.log("QR code generated and stored for admin panel");
 });
 
 // When client is ready
 client.on("ready", () => {
   console.log("WhatsApp client is ready!");
+  clientReady = true;
+  currentQR = null; // Clear QR once connected
+});
+
+// Handle loading screen
+client.on("loading_screen", (percent, message) => {
+  console.log("Loading screen:", percent, "% -", message);
 });
 
 // Handle authentication failures
 client.on("auth_failure", (msg) => {
   console.error("Authentication failed:", msg);
+  clientReady = false;
+  currentQR = null;
 });
 
 // Handle disconnections
 client.on("disconnected", (reason) => {
   console.log("Client was disconnected:", reason);
+  clientReady = false;
+  currentQR = null;
 });
 
 // Middleware

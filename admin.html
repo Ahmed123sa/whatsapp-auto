@@ -176,13 +176,14 @@
             qrSection.style.display = "block";
           } else {
             statusCard.className = "status-card status-disconnected";
-            statusText.textContent = "⏳ جاري تهيئة WhatsApp...";
+            statusText.textContent =
+              "⏳ جاري تهيئة WhatsApp... إذا استمر هذا لأكثر من دقيقة، جرب تحديث الصفحة";
             qrSection.style.display = "none";
           }
         } catch (error) {
           console.error("Error checking status:", error);
           document.getElementById("statusText").textContent =
-            "❌ خطأ في الاتصال بالسيرفر";
+            "❌ خطأ في الاتصال بالسيرفر - تحقق من اتصال الإنترنت";
         }
       }
 
