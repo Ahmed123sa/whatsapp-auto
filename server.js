@@ -84,6 +84,14 @@ app.post("/create-group", async (req, res) => {
       return res.status(400).json({ error: "Phone number is required" });
     }
 
+    // Check if WhatsApp client is ready
+    if (!client.info) {
+      return res.status(503).json({
+        error: "WhatsApp client is not ready",
+        message: "يرجى ربط WhatsApp أولاً من خلال مسح رمز QR في Deploy Logs",
+      });
+    }
+
     // Format client phone number
     const clientNumber = formatWhatsAppNumber(phone);
 
