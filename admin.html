@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>إعداد WhatsApp - Admin Panel</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Custom CSS -->
+    <style>
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+      }
+      .logo {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .logo h1 {
+        color: #333;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .logo p {
+        color: #666;
+        font-size: 16px;
+      }
+      .status-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+      }
+      .status-connected {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .status-disconnected {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .qr-container {
+        text-align: center;
+        margin: 20px 0;
+      }
+      .qr-code {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        display: inline-block;
+        margin: 10px 0;
+      }
+      .refresh-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: 600;
+        color: white;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+      .refresh-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+      .instructions {
+        background: #e7f3ff;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+      .instructions ol {
+        text-align: right;
+        padding-right: 20px;
+      }
+      .instructions li {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">
+        <h1>🔧 لوحة إدارة WhatsApp</h1>
+        <p>إعداد وربط WhatsApp للمشروع</p>
+      </div>
+
+      <div id="statusCard" class="status-card">
+        <h5>حالة الاتصال</h5>
+        <p id="statusText">جاري التحقق...</p>
+      </div>
+
+      <div id="qrSection" style="display: none">
+        <h4 class="text-center mb-3">امسح رمز QR التالي</h4>
+        <div class="qr-container">
+          <div class="qr-code">
+            <pre
+              id="qrCode"
+              style="
+                font-family: monospace;
+                font-size: 12px;
+                line-height: 1;
+                margin: 0;
+              "
+            ></pre>
+          </div>
+        </div>
+        <div class="text-center mt-3">
+          <button class="refresh-btn" onclick="checkStatus()">
+            تحديث الحالة
+          </button>
+        </div>
+      </div>
+
+      <div class="instructions">
+        <h5>📋 خطوات الربط:</h5>
+        <ol>
+          <li>افتح تطبيق WhatsApp على هاتفك</li>
+          <li>اذهب إلى الإعدادات → الأجهزة المرتبطة</li>
+          <li>انقر على "ربط جهاز"</li>
+          <li>امسح رمز QR المعروض أعلاه</li>
+          <li>انتظر حتى تظهر رسالة "متصل بنجاح"</li>
+        </ol>
+      </div>
+
+      <div class="text-center">
+        <a href="/" class="btn btn-secondary">العودة للصفحة الرئيسية</a>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      let qrCodeData = null;
+
+      async function checkStatus() {
+        try {
+          const response = await fetch("/api/whatsapp-status");
+          const data = await response.json();
+
+          const statusCard = document.getElementById("statusCard");
+          const statusText = document.getElementById("statusText");
+          const qrSection = document.getElementById("qrSection");
+          const qrCode = document.getElementById("qrCode");
+
+          if (data.ready) {
+            statusCard.className = "status-card status-connected";
+            statusText.textContent = "✅ WhatsApp متصل بنجاح!";
+            qrSection.style.display = "none";
+          } else if (data.qr) {
+            statusCard.className = "status-card status-disconnected";
+            statusText.textContent = "❌ WhatsApp غير متصل - امسح رمز QR";
+            qrCode.textContent = data.qr;
+            qrSection.style.display = "block";
+          } else {
+            statusCard.className = "status-card status-disconnected";
+            statusText.textContent = "⏳ جاري تهيئة WhatsApp...";
+            qrSection.style.display = "none";
+          }
+        } catch (error) {
+          console.error("Error checking status:", error);
+          document.getElementById("statusText").textContent =
+            "❌ خطأ في الاتصال بالسيرفر";
+        }
+      }
+
+      // Check status every 5 seconds
+      setInterval(checkStatus, 5000);
+
+      // Initial check
+      checkStatus();
+    </script>
+  </body>
+</html>

@@ -13,6 +13,8 @@ const DESIGNERS = process.env.DESIGNERS
   ? process.env.DESIGNERS.split(",").map((d) => d.trim())
   : ["201098765432@c.us", "201011111111@c.us"];
 
+let currentQR = null;
+
 // Initialize WhatsApp client
 const client = new Client();
 
@@ -20,6 +22,7 @@ const client = new Client();
 client.on("qr", (qr) => {
   console.log("Scan this QR code with WhatsApp:");
   qrcode.generate(qr, { small: true });
+  currentQR = qr;
 });
 
 // When client is ready
@@ -148,6 +151,20 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     whatsappReady: client.info ? true : false,
   });
+});
+
+// WhatsApp status API for admin panel
+app.get("/api/whatsapp-status", (req, res) => {
+  res.json({
+    ready: client.info ? true : false,
+    qr: currentQR,
+    info: client.info || null,
+  });
+});
+
+// Admin panel
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin.html"));
 });
 
 // Root endpoint - serve the HTML page
