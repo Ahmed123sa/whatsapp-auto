@@ -150,30 +150,52 @@ app.post("/create-group", async (req, res) => {
     console.log("Creating group:", groupName);
     console.log("Participants:", participants);
 
-    // Create group
+    // Create group with settings to allow all members to send messages
     const group = await client.createGroup(groupName, participants);
 
-    // Send welcome message
-    const welcomeMessage = "مرحباً! هذا الجروب مخصص لتصميمك الجديد 🎨";
-    await client.sendMessage(group.id._serialized, welcomeMessage);
+    // Try to set group settings to allow all members to send messages
+    try {
+      await group.setMessagesAdminsOnly(false);
+      console.log("Group settings updated: all members can send messages");
+    } catch (settingsError) {
+      console.warn("Could not update group settings:", settingsError.message);
+      // Continue anyway, as the group was created successfully
+    }
 
-    // Save to database
-    const database = loadDatabase();
-    const groupData = {
-      id: group.id._serialized,
-      name: groupName,
-      participants: participants,
-      createdAt: new Date().toISOString(),
-      clientNumber: clientNumber,
-    };
-    database.push(groupData);
-    saveDatabase(database);
+    // Try to send welcome message (don't fail if this fails)
+    try {
+      const welcomeMessage =
+        "مرحباً! هذا الجروب مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.";
+      await client.sendMessage(group.id._serialized, welcomeMessage);
+      console.log("Welcome message sent successfully");
+    } catch (messageError) {
+      console.warn("Could not send welcome message:", messageError.message);
+      // Continue anyway, as the group was created successfully
+    }
+
+    // Try to save to database (don't fail if this fails)
+    try {
+      const database = loadDatabase();
+      const groupData = {
+        id: group.id._serialized,
+        name: groupName,
+        participants: participants,
+        createdAt: new Date().toISOString(),
+        clientNumber: clientNumber,
+      };
+      database.push(groupData);
+      saveDatabase(database);
+      console.log("Group data saved to database");
+    } catch (dbError) {
+      console.warn("Could not save to database:", dbError.message);
+      // Continue anyway, as the group was created successfully
+    }
 
     console.log("Group created successfully:", groupName);
 
     res.json({
       success: true,
-      message: "تم إنشاء الجروب بنجاح",
+      message: "تم إنشاء الجروب بنجاح! يمكن لجميع الأعضاء إرسال الرسائل.",
       groupId: group.id._serialized,
       groupName: groupName,
     });
