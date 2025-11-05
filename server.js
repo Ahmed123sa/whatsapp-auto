@@ -152,13 +152,31 @@ app.post("/create-group", async (req, res) => {
 
     // Create group with settings to allow all members to send messages
     const group = await client.createGroup(groupName, participants);
+    console.log("Group created with ID:", group.id._serialized);
 
     // Try to set group settings to allow all members to send messages
     try {
-      await group.setMessagesAdminsOnly(false);
-      console.log("Group settings updated: all members can send messages");
+      // Check if the method exists and call it
+      if (typeof group.setMessagesAdminsOnly === "function") {
+        await group.setMessagesAdminsOnly(false);
+        console.log("Group settings updated: all members can send messages");
+      } else {
+        console.warn("setMessagesAdminsOnly method not available");
+      }
     } catch (settingsError) {
       console.warn("Could not update group settings:", settingsError.message);
+      // Try alternative method if available
+      try {
+        if (typeof group.updateSettings === "function") {
+          await group.updateSettings({ messagesAdminsOnly: false });
+          console.log("Group settings updated using updateSettings");
+        }
+      } catch (altError) {
+        console.warn(
+          "Alternative settings update also failed:",
+          altError.message
+        );
+      }
       // Continue anyway, as the group was created successfully
     }
 
