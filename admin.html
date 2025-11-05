@@ -115,15 +115,30 @@
         <h4 class="text-center mb-3">امسح رمز QR التالي</h4>
         <div class="qr-container">
           <div class="qr-code">
-            <pre
-              id="qrCode"
+            <img
+              id="qrImage"
+              src=""
+              alt="WhatsApp QR Code"
               style="
-                font-family: monospace;
-                font-size: 12px;
-                line-height: 1;
-                margin: 0;
+                max-width: 100%;
+                height: auto;
+                display: block;
+                margin: 0 auto;
               "
-            ></pre>
+            />
+            <div id="qrText" style="display: none">
+              <pre
+                id="qrCode"
+                style="
+                  font-family: monospace;
+                  font-size: 10px;
+                  line-height: 1;
+                  margin: 10px 0 0 0;
+                  word-break: break-all;
+                  white-space: pre-wrap;
+                "
+              ></pre>
+            </div>
           </div>
         </div>
         <div class="text-center mt-3">
@@ -163,22 +178,27 @@
           const statusCard = document.getElementById("statusCard");
           const statusText = document.getElementById("statusText");
           const qrSection = document.getElementById("qrSection");
+          const qrImage = document.getElementById("qrImage");
           const qrCode = document.getElementById("qrCode");
 
           if (data.ready) {
             statusCard.className = "status-card status-connected";
             statusText.textContent = "✅ WhatsApp متصل بنجاح!";
             qrSection.style.display = "none";
+            qrImage.src = ""; // Clear image
           } else if (data.qr) {
             statusCard.className = "status-card status-disconnected";
             statusText.textContent = "❌ WhatsApp غير متصل - امسح رمز QR";
             qrCode.textContent = data.qr;
+            // Set QR image source with timestamp to avoid caching
+            qrImage.src = "/api/qr-image?t=" + Date.now();
             qrSection.style.display = "block";
           } else {
             statusCard.className = "status-card status-disconnected";
             statusText.textContent =
               "⏳ جاري تهيئة WhatsApp... إذا استمر هذا لأكثر من دقيقة، جرب تحديث الصفحة";
             qrSection.style.display = "none";
+            qrImage.src = ""; // Clear image
           }
         } catch (error) {
           console.error("Error checking status:", error);

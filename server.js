@@ -1,6 +1,7 @@
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
+const QRCode = require("qrcode");
 const fs = require("fs");
 const path = require("path");
 
@@ -196,6 +197,33 @@ app.get("/api/whatsapp-status", (req, res) => {
     qr: currentQR,
     info: client.info || null,
   });
+});
+
+// QR code image endpoint
+app.get("/api/qr-image", async (req, res) => {
+  try {
+    if (!currentQR) {
+      return res.status(404).json({ error: "No QR code available" });
+    }
+
+    // Generate QR code as PNG image
+    const qrImageBuffer = await QRCode.toBuffer(currentQR, {
+      type: "png",
+      width: 300,
+      margin: 2,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    });
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-cache");
+    res.send(qrImageBuffer);
+  } catch (error) {
+    console.error("Error generating QR image:", error);
+    res.status(500).json({ error: "Failed to generate QR image" });
+  }
 });
 
 // Admin panel
