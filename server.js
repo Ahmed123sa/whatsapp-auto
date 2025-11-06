@@ -13,6 +13,22 @@ const ADMIN_NUMBER = process.env.ADMIN_NUMBER || "201012345678@c.us";
 const DESIGNERS_STRING =
   process.env.DESIGNERS || "201098765432@c.us,201011111111@c.us";
 
+// App customization - Use environment variables or defaults
+const APP_CONFIG = {
+  title: process.env.APP_TITLE || "AutoGroup WhatsApp",
+  subtitle: process.env.APP_SUBTITLE || "انشاء جروب واتساب تلقائي للعملاء",
+  groupNameLabel: process.env.GROUP_NAME_LABEL || "اسم الجروب",
+  phoneLabel: process.env.PHONE_LABEL || "رقم الهاتف",
+  submitButtonText: process.env.SUBMIT_BUTTON_TEXT || "ابدأ المحادثة",
+  welcomeMessage:
+    process.env.WELCOME_MESSAGE ||
+    'مرحباً! هذا الجروب "{GROUP_NAME}" مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.',
+  successMessage:
+    process.env.SUCCESS_MESSAGE ||
+    'تم إنشاء الجروب "{GROUP_NAME}" بنجاح! يمكن لجميع الأعضاء إرسال الرسائل.',
+  errorMessage: process.env.ERROR_MESSAGE || "حدث خطأ غير متوقع",
+};
+
 console.log("🔧 Loading WhatsApp configuration...");
 console.log("📋 Environment check:");
 console.log(
@@ -335,7 +351,10 @@ app.post("/create-group", async (req, res) => {
 
         // Send welcome message
         try {
-          const welcomeMessage = `مرحباً! هذا الجروب "${groupName}" مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.`;
+          const welcomeMessage = APP_CONFIG.welcomeMessage.replace(
+            "{GROUP_NAME}",
+            groupName
+          );
           await client.sendMessage(group.gid._serialized, welcomeMessage);
           console.log("✓ Welcome message sent successfully");
         } catch (messageError) {
@@ -421,6 +440,14 @@ app.get("/api/qr-image", async (req, res) => {
     console.error("Error generating QR image:", error);
     res.status(500).json({ error: "Failed to generate QR image" });
   }
+});
+
+// App config API endpoint - serves customizable text
+app.get("/api/config", (req, res) => {
+  res.json({
+    success: true,
+    config: APP_CONFIG,
+  });
 });
 
 // Groups API endpoint
