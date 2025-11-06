@@ -282,10 +282,32 @@ app.post("/create-group", async (req, res) => {
     });
 
     // Create group with settings to allow all members to send messages
+    console.log("🔄 Calling client.createGroup...");
     const group = await client.createGroup(groupName, uniqueParticipants, {
       restrict: false, // Allow all members to edit group info
       announce: false, // Allow all members to send messages
     });
+
+    console.log("📦 createGroup result:", group);
+
+    // Check if group creation was successful
+    if (!group) {
+      console.error("❌ Group creation failed - returned null/undefined");
+      return res.status(500).json({
+        error: "Failed to create group",
+        details:
+          "WhatsApp group creation returned null. Check participant numbers and WhatsApp connection.",
+      });
+    }
+
+    if (!group.id || !group.id._serialized) {
+      console.error("❌ Group creation failed - invalid group object:", group);
+      return res.status(500).json({
+        error: "Failed to create group",
+        details:
+          "Invalid group object returned from WhatsApp. Check participant numbers.",
+      });
+    }
 
     console.log("✅ Group created successfully:", {
       id: group.id._serialized,
