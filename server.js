@@ -331,6 +331,29 @@ app.post("/create-group", async (req, res) => {
       participantCount: uniqueParticipants.length,
     });
 
+    // Update group settings to allow all members to send messages
+    try {
+      console.log(
+        "🔧 Updating group settings to allow all members to send messages..."
+      );
+
+      // Set announce to false (allow all members to send messages)
+      await client.setGroupProperty(group.gid._serialized, "announce", false);
+      console.log("✓ Group announce setting updated");
+
+      // Set restrict to false (allow all members to edit group info)
+      await client.setGroupProperty(group.gid._serialized, "restrict", false);
+      console.log("✓ Group restrict setting updated");
+
+      console.log("✅ Group settings updated successfully");
+    } catch (settingsError) {
+      console.warn(
+        "⚠️ Could not update group settings:",
+        settingsError.message
+      );
+      // Don't fail the request if settings update fails
+    }
+
     // Return success immediately after group creation
     res.json({
       success: true,
