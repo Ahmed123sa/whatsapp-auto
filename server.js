@@ -8,15 +8,70 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// WhatsApp configuration - Can be set via environment variables or defaults
-const ADMIN_NUMBER = process.env.ADMIN_NUMBER || "201012345678@c.us";
-const DESIGNERS = process.env.DESIGNERS
-  ? process.env.DESIGNERS.split(",").map((d) => d.trim())
-  : ["201098765432@c.us", "201011111111@c.us"];
+// WhatsApp configuration - Must be set via environment variables
+const ADMIN_NUMBER = process.env.ADMIN_NUMBER;
+const DESIGNERS_STRING = process.env.DESIGNERS;
 
-console.log("Environment variables loaded:");
-console.log("ADMIN_NUMBER:", ADMIN_NUMBER ? "Set" : "Not set");
-console.log("DESIGNERS:", DESIGNERS.length > 0 ? "Set" : "Not set");
+// Validate required environment variables
+if (!ADMIN_NUMBER) {
+  console.error("❌ ERROR: ADMIN_NUMBER environment variable is required!");
+  console.error(
+    "Please set ADMIN_NUMBER in your Railway environment variables."
+  );
+  process.exit(1);
+}
+
+if (!DESIGNERS_STRING) {
+  console.error("❌ ERROR: DESIGNERS environment variable is required!");
+  console.error(
+    "Please set DESIGNERS in your Railway environment variables (comma-separated)."
+  );
+  process.exit(1);
+}
+
+// Parse and validate designers
+let DESIGNERS = DESIGNERS_STRING.split(",")
+  .map((d) => d.trim())
+  .filter((d) => d.length > 0);
+
+if (DESIGNERS.length === 0) {
+  console.error(
+    "❌ ERROR: No valid designers found in DESIGNERS environment variable!"
+  );
+  process.exit(1);
+}
+
+// Validate and format designer numbers
+DESIGNERS = DESIGNERS.map((designer) => {
+  try {
+    // If designer number doesn't end with @c.us, format it
+    if (!designer.includes("@c.us")) {
+      return formatWhatsAppNumber(designer);
+    }
+    return designer;
+  } catch (error) {
+    console.error(`❌ ERROR: Invalid designer number format: ${designer}`);
+    process.exit(1);
+  }
+});
+
+// Validate admin number format
+let formattedAdminNumber;
+try {
+  if (!ADMIN_NUMBER.includes("@c.us")) {
+    formattedAdminNumber = formatWhatsAppNumber(ADMIN_NUMBER);
+  } else {
+    formattedAdminNumber = ADMIN_NUMBER;
+  }
+} catch (error) {
+  console.error(`❌ ERROR: Invalid admin number format: ${ADMIN_NUMBER}`);
+  process.exit(1);
+}
+
+console.log("✅ Environment variables loaded and validated successfully:");
+console.log("ADMIN_NUMBER:", formattedAdminNumber);
+console.log("DESIGNERS:", DESIGNERS);
+console.log("Number of designers:", DESIGNERS.length);
 
 let currentQR = null;
 let clientReady = false;
@@ -38,7 +93,19 @@ const client = new Client({
       "--no-zygote",
       "--single-process",
       "--disable-gpu",
+      // Railway-specific args
+      "--disable-web-security",
+      "--disable-features=VizDisplayCompositor",
+      "--disable-ipc-flooding-protection",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
     ],
+  },
+  webVersionCache: {
+    type: "remote",
+    remotePath:
+      "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
   },
 });
 
@@ -126,41 +193,64 @@ function formatWhatsAppNumber(phone) {
 
 // Create group endpoint
 app.post("/create-group", async (req, res) => {
+  console.log("🔄 Received group creation request:", {
+    phone: req.body.phone,
+    groupName: req.body.groupName,
+  });
+
   try {
     const { phone, groupName } = req.body;
 
     if (!phone) {
+      console.error("❌ Missing phone number in request");
       return res.status(400).json({ error: "Phone number is required" });
     }
 
     if (!groupName) {
+      console.error("❌ Missing group name in request");
       return res.status(400).json({ error: "Group name is required" });
     }
 
     // Check if WhatsApp client is ready
     if (!client.info) {
+      console.error("❌ WhatsApp client not ready:", {
+        clientInfo: client.info,
+        clientReady,
+      });
       return res.status(503).json({
         error: "WhatsApp client is not ready",
         message: "يرجى ربط WhatsApp أولاً من خلال مسح رمز QR في Deploy Logs",
       });
     }
 
+    console.log("✅ WhatsApp client is ready, proceeding with group creation");
+
     // Format client phone number
     const clientNumber = formatWhatsAppNumber(phone);
-    console.log("Formatted phone number:", clientNumber);
+    console.log("📱 Formatted client phone number:", clientNumber);
 
     // Prepare participants
-    const participants = [ADMIN_NUMBER, clientNumber, ...DESIGNERS];
+    const participants = [formattedAdminNumber, clientNumber, ...DESIGNERS];
+    console.log("👥 Group participants:", participants);
+    console.log("📊 Total participants:", participants.length);
 
-    console.log("Creating group:", groupName);
-    console.log("Participants:", participants);
+    console.log("🏗️ Creating group with options:", {
+      name: groupName,
+      restrict: false,
+      announce: false,
+    });
 
     // Create group with settings to allow all members to send messages
     const group = await client.createGroup(groupName, participants, {
       restrict: false, // Allow all members to edit group info
       announce: false, // Allow all members to send messages
     });
-    console.log("Group created with ID:", group.id._serialized);
+
+    console.log("✅ Group created successfully:", {
+      id: group.id._serialized,
+      name: groupName,
+      participantCount: participants.length,
+    });
 
     // Return success immediately after group creation
     res.json({
