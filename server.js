@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 
 // WhatsApp configuration - Use environment variables or defaults for local testing
 const ADMIN_NUMBER = process.env.ADMIN_NUMBER || "201012345678@c.us";
@@ -358,11 +358,32 @@ app.post("/create-group", async (req, res) => {
     try {
       console.log("👑 Promoting all participants to admin status...");
 
-      // Promote client to admin
-      await client.promoteParticipant(group.gid._serialized, clientNumber);
-      console.log(`✓ Promoted client ${clientNumber} to admin`);
+      // Wait a bit for group to stabilize
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Promote all designers to admin
+      // Get current group info to check participants
+      const groupInfo = await client.getChatById(group.gid._serialized);
+      console.log("📊 Group info after creation:", {
+        participantsCount: groupInfo.participants?.length || 0,
+        participants:
+          groupInfo.participants?.map((p) => ({
+            id: p.id._serialized,
+            isAdmin: p.isAdmin || false,
+          })) || [],
+      });
+
+      // Promote client to admin (if not already admin)
+      try {
+        await client.promoteParticipant(group.gid._serialized, clientNumber);
+        console.log(`✓ Promoted client ${clientNumber} to admin`);
+      } catch (clientError) {
+        console.warn(
+          `⚠️ Could not promote client ${clientNumber}:`,
+          clientError.message
+        );
+      }
+
+      // Promote all designers to admin (if not already admin)
       for (const designer of DESIGNERS) {
         try {
           await client.promoteParticipant(group.gid._serialized, designer);
@@ -374,6 +395,20 @@ app.post("/create-group", async (req, res) => {
           );
         }
       }
+
+      // Verify final admin status
+      const finalGroupInfo = await client.getChatById(group.gid._serialized);
+      console.log("✅ Final group admin status:", {
+        participantsCount: finalGroupInfo.participants?.length || 0,
+        admins:
+          finalGroupInfo.participants
+            ?.filter((p) => p.isAdmin)
+            .map((p) => p.id._serialized) || [],
+        nonAdmins:
+          finalGroupInfo.participants
+            ?.filter((p) => !p.isAdmin)
+            .map((p) => p.id._serialized) || [],
+      });
 
       console.log("✅ All participants promoted to admin successfully");
     } catch (promoteError) {
