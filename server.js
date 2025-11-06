@@ -354,6 +354,33 @@ app.post("/create-group", async (req, res) => {
       // Don't fail the request if settings update fails
     }
 
+    // Promote all participants to admin status
+    try {
+      console.log("👑 Promoting all participants to admin status...");
+
+      // Promote client to admin
+      await client.promoteParticipant(group.gid._serialized, clientNumber);
+      console.log(`✓ Promoted client ${clientNumber} to admin`);
+
+      // Promote all designers to admin
+      for (const designer of DESIGNERS) {
+        try {
+          await client.promoteParticipant(group.gid._serialized, designer);
+          console.log(`✓ Promoted designer ${designer} to admin`);
+        } catch (designerError) {
+          console.warn(
+            `⚠️ Could not promote designer ${designer}:`,
+            designerError.message
+          );
+        }
+      }
+
+      console.log("✅ All participants promoted to admin successfully");
+    } catch (promoteError) {
+      console.warn("⚠️ Could not promote participants:", promoteError.message);
+      // Don't fail the request if promotion fails
+    }
+
     // Return success immediately after group creation
     res.json({
       success: true,
