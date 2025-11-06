@@ -111,6 +111,20 @@
 
       <form id="groupForm">
         <div class="form-group">
+          <label for="groupName" class="form-label fw-bold">اسم الجروب</label>
+          <input
+            type="text"
+            class="form-control"
+            id="groupName"
+            name="groupName"
+            placeholder="أدخل اسم الجروب (مثال: تصميم شعار)"
+            required
+            maxlength="50"
+          />
+          <div class="form-text">أدخل اسم الجروب الذي تريد إنشاؤه</div>
+        </div>
+
+        <div class="form-group">
           <label for="phone" class="form-label fw-bold">رقم الهاتف</label>
           <input
             type="tel"
@@ -159,6 +173,7 @@
           const submitBtn = document.getElementById("submitBtn");
           const btnText = document.getElementById("btnText");
           const phone = document.getElementById("phone").value.trim();
+          const groupName = document.getElementById("groupName").value.trim();
 
           // Hide previous alerts
           document.getElementById("successAlert").style.display = "none";
@@ -175,7 +190,7 @@
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ phone: phone }),
+              body: JSON.stringify({ phone: phone, groupName: groupName }),
             });
 
             const data = await response.json();

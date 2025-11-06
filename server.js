@@ -127,10 +127,14 @@ function formatWhatsAppNumber(phone) {
 // Create group endpoint
 app.post("/create-group", async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, groupName } = req.body;
 
     if (!phone) {
       return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    if (!groupName) {
+      return res.status(400).json({ error: "Group name is required" });
     }
 
     // Check if WhatsApp client is ready
@@ -144,10 +148,6 @@ app.post("/create-group", async (req, res) => {
     // Format client phone number
     const clientNumber = formatWhatsAppNumber(phone);
     console.log("Formatted phone number:", clientNumber);
-
-    // Generate random ID for group
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const groupName = `Client_Group_${randomId}`;
 
     // Prepare participants
     const participants = [ADMIN_NUMBER, clientNumber, ...DESIGNERS];
@@ -165,59 +165,24 @@ app.post("/create-group", async (req, res) => {
     // Return success immediately after group creation
     res.json({
       success: true,
-      message: "تم إنشاء الجروب بنجاح! يمكن لجميع الأعضاء إرسال الرسائل.",
+      message: `تم إنشاء الجروب "${groupName}" بنجاح! يمكن لجميع الأعضاء إرسال الرسائل.`,
       groupId: group.id._serialized,
       groupName: groupName,
+      participants: {
+        admin: ADMIN_NUMBER,
+        client: clientNumber,
+        designers: DESIGNERS,
+      },
     });
 
     // Handle post-creation tasks asynchronously (don't block the response)
     setImmediate(async () => {
       try {
-        // Try multiple approaches to set group permissions
-        console.log("Attempting to set group permissions...");
+        console.log("Starting post-creation tasks for group:", groupName);
 
-        // Method 1: Try setMessagesAdminsOnly
+        // Send welcome message
         try {
-          if (typeof group.setMessagesAdminsOnly === "function") {
-            await group.setMessagesAdminsOnly(false);
-            console.log("✓ Group permissions set using setMessagesAdminsOnly");
-          }
-        } catch (error) {
-          console.warn("✗ setMessagesAdminsOnly failed:", error.message);
-        }
-
-        // Method 2: Try updateSettings
-        try {
-          if (typeof group.updateSettings === "function") {
-            await group.updateSettings({
-              restrict: false,
-              announce: false,
-              messagesAdminsOnly: false,
-            });
-            console.log("✓ Group permissions set using updateSettings");
-          }
-        } catch (error) {
-          console.warn("✗ updateSettings failed:", error.message);
-        }
-
-        // Method 3: Try setting permissions directly on group object
-        try {
-          if (group.announce !== undefined) {
-            group.announce = false;
-            console.log("✓ Group announce property set to false");
-          }
-          if (group.restrict !== undefined) {
-            group.restrict = false;
-            console.log("✓ Group restrict property set to false");
-          }
-        } catch (error) {
-          console.warn("✗ Direct property setting failed:", error.message);
-        }
-
-        // Try to send welcome message
-        try {
-          const welcomeMessage =
-            "مرحباً! هذا الجروب مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.";
+          const welcomeMessage = `مرحباً! هذا الجروب "${groupName}" مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.`;
           await client.sendMessage(group.id._serialized, welcomeMessage);
           console.log("✓ Welcome message sent successfully");
         } catch (messageError) {
@@ -227,7 +192,7 @@ app.post("/create-group", async (req, res) => {
           );
         }
 
-        // Try to save to database
+        // Save to database
         try {
           const database = loadDatabase();
           const groupData = {
@@ -302,6 +267,24 @@ app.get("/api/qr-image", async (req, res) => {
   } catch (error) {
     console.error("Error generating QR image:", error);
     res.status(500).json({ error: "Failed to generate QR image" });
+  }
+});
+
+// Groups API endpoint
+app.get("/api/groups", (req, res) => {
+  try {
+    const database = loadDatabase();
+    res.json({
+      success: true,
+      groups: database,
+      total: database.length,
+    });
+  } catch (error) {
+    console.error("Error loading groups:", error);
+    res.status(500).json({
+      error: "Failed to load groups",
+      details: error.message,
+    });
   }
 });
 
