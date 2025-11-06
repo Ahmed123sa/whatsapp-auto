@@ -170,10 +170,14 @@
         .addEventListener("submit", async function (e) {
           e.preventDefault();
 
+          console.log("🎯 Form submitted - starting group creation process");
+
           const submitBtn = document.getElementById("submitBtn");
           const btnText = document.getElementById("btnText");
           const phone = document.getElementById("phone").value.trim();
           const groupName = document.getElementById("groupName").value.trim();
+
+          console.log("📝 Form data:", { phone, groupName });
 
           // Hide previous alerts
           document.getElementById("successAlert").style.display = "none";
@@ -184,18 +188,37 @@
           btnText.innerHTML =
             '<span class="loading"></span>جاري إنشاء الجروب...';
 
+          console.log("🚀 Sending request to server...");
+
           try {
+            const requestData = { phone: phone, groupName: groupName };
+            console.log("📤 Request payload:", requestData);
+
             const response = await fetch("/create-group", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ phone: phone, groupName: groupName }),
+              body: JSON.stringify(requestData),
             });
 
+            console.log("📥 Server response status:", response.status);
+            console.log(
+              "📥 Server response headers:",
+              Object.fromEntries(response.headers.entries())
+            );
+
             const data = await response.json();
+            console.log("📦 Server response data:", data);
 
             if (data.success) {
+              console.log("✅ Group creation successful!");
+              console.log("📊 Group details:", {
+                id: data.groupId,
+                name: data.groupName,
+                participants: data.participants,
+              });
+
               // Show success message
               document.getElementById("successMessage").textContent =
                 data.message;
@@ -204,13 +227,19 @@
               // Reset form
               document.getElementById("groupForm").reset();
             } else {
+              console.error("❌ Server returned error:", data.error);
               // Show error message
               document.getElementById("errorMessage").textContent =
                 data.error || "حدث خطأ غير متوقع";
               document.getElementById("errorAlert").style.display = "block";
             }
           } catch (error) {
-            console.error("Error:", error);
+            console.error("💥 Network or parsing error:", error);
+            console.error("Error details:", {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            });
             document.getElementById("errorMessage").textContent =
               "فشل في الاتصال بالسيرفر. تأكد من تشغيل السيرفر.";
             document.getElementById("errorAlert").style.display = "block";
@@ -218,6 +247,7 @@
             // Reset button state
             submitBtn.disabled = false;
             btnText.textContent = "ابدأ المحادثة";
+            console.log("🔄 Form interaction completed");
           }
         });
 

@@ -8,70 +8,85 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// WhatsApp configuration - Must be set via environment variables
-const ADMIN_NUMBER = process.env.ADMIN_NUMBER;
-const DESIGNERS_STRING = process.env.DESIGNERS;
+// WhatsApp configuration - Use environment variables or defaults for local testing
+const ADMIN_NUMBER = process.env.ADMIN_NUMBER || "201012345678@c.us";
+const DESIGNERS_STRING =
+  process.env.DESIGNERS || "201098765432@c.us,201011111111@c.us";
 
-// Validate required environment variables
-if (!ADMIN_NUMBER) {
-  console.error("❌ ERROR: ADMIN_NUMBER environment variable is required!");
-  console.error(
-    "Please set ADMIN_NUMBER in your Railway environment variables."
-  );
-  process.exit(1);
-}
-
-if (!DESIGNERS_STRING) {
-  console.error("❌ ERROR: DESIGNERS environment variable is required!");
-  console.error(
-    "Please set DESIGNERS in your Railway environment variables (comma-separated)."
-  );
-  process.exit(1);
-}
+console.log("🔧 Loading WhatsApp configuration...");
+console.log("📋 Environment check:");
+console.log(
+  "   ADMIN_NUMBER:",
+  process.env.ADMIN_NUMBER ? "Set from env" : "Using default"
+);
+console.log(
+  "   DESIGNERS:",
+  process.env.DESIGNERS ? "Set from env" : "Using defaults"
+);
 
 // Parse and validate designers
 let DESIGNERS = DESIGNERS_STRING.split(",")
   .map((d) => d.trim())
   .filter((d) => d.length > 0);
 
-if (DESIGNERS.length === 0) {
-  console.error(
-    "❌ ERROR: No valid designers found in DESIGNERS environment variable!"
-  );
-  process.exit(1);
-}
+console.log("👥 Raw designers from config:", DESIGNERS);
 
 // Validate and format designer numbers
-DESIGNERS = DESIGNERS.map((designer) => {
+DESIGNERS = DESIGNERS.map((designer, index) => {
+  console.log(`🔄 Processing designer ${index + 1}:`, designer);
   try {
     // If designer number doesn't end with @c.us, format it
     if (!designer.includes("@c.us")) {
-      return formatWhatsAppNumber(designer);
+      const formatted = formatWhatsAppNumber(designer);
+      console.log(`   ✅ Formatted to:`, formatted);
+      return formatted;
     }
+    console.log(`   ✅ Already formatted:`, designer);
     return designer;
   } catch (error) {
-    console.error(`❌ ERROR: Invalid designer number format: ${designer}`);
-    process.exit(1);
+    console.error(
+      `❌ ERROR: Invalid designer number format: ${designer}`,
+      error
+    );
+    return null;
   }
-});
+}).filter((d) => d !== null);
+
+if (DESIGNERS.length === 0) {
+  console.error("❌ ERROR: No valid designers found!");
+  console.error(
+    "Please check your DESIGNERS environment variable or defaults."
+  );
+  process.exit(1);
+}
 
 // Validate admin number format
 let formattedAdminNumber;
 try {
   if (!ADMIN_NUMBER.includes("@c.us")) {
     formattedAdminNumber = formatWhatsAppNumber(ADMIN_NUMBER);
+    console.log(
+      "📱 Admin number formatted from:",
+      ADMIN_NUMBER,
+      "to:",
+      formattedAdminNumber
+    );
   } else {
     formattedAdminNumber = ADMIN_NUMBER;
+    console.log("📱 Admin number already formatted:", formattedAdminNumber);
   }
 } catch (error) {
-  console.error(`❌ ERROR: Invalid admin number format: ${ADMIN_NUMBER}`);
+  console.error(
+    `❌ ERROR: Invalid admin number format: ${ADMIN_NUMBER}`,
+    error
+  );
   process.exit(1);
 }
 
-console.log("✅ Environment variables loaded and validated successfully:");
-console.log("ADMIN_NUMBER:", formattedAdminNumber);
-console.log("DESIGNERS:", DESIGNERS);
-console.log("Number of designers:", DESIGNERS.length);
+console.log("✅ Configuration loaded successfully:");
+console.log("   📞 ADMIN_NUMBER:", formattedAdminNumber);
+console.log("   👨‍🎨 DESIGNERS:", DESIGNERS);
+console.log("   📊 Total designers:", DESIGNERS.length);
 
 let currentQR = null;
 let clientReady = false;
@@ -111,42 +126,53 @@ const client = new Client({
 
 // Generate QR code for authentication
 client.on("qr", (qr) => {
-  console.log("Scan this QR code with WhatsApp:");
+  console.log("🔳 QR Code generated for WhatsApp authentication");
+  console.log("📱 Please scan this QR code with WhatsApp:");
   qrcode.generate(qr, { small: true });
   currentQR = qr;
   clientReady = false;
-  console.log("QR code generated and stored for admin panel");
+  console.log("✅ QR code stored for admin panel access");
 });
 
 // When client is authenticated
 client.on("authenticated", () => {
-  console.log("WhatsApp client authenticated!");
+  console.log("🔐 WhatsApp client authenticated successfully!");
 });
 
 // When client is ready
 client.on("ready", () => {
-  console.log("WhatsApp client is ready!");
+  console.log("🚀 WhatsApp client is ready and connected!");
+  console.log("📊 Client info:", client.info);
   clientReady = true;
   currentQR = null; // Clear QR once connected
 });
 
 // Handle loading screen
 client.on("loading_screen", (percent, message) => {
-  console.log("Loading screen:", percent, "% -", message);
+  console.log(`⏳ WhatsApp loading: ${percent}% - ${message}`);
 });
 
 // Handle authentication failures
 client.on("auth_failure", (msg) => {
-  console.error("Authentication failed:", msg);
+  console.error("❌ WhatsApp authentication failed:", msg);
   clientReady = false;
   currentQR = null;
 });
 
 // Handle disconnections
 client.on("disconnected", (reason) => {
-  console.log("Client was disconnected:", reason);
+  console.log("📴 WhatsApp client disconnected:", reason);
   clientReady = false;
   currentQR = null;
+});
+
+// Handle messages for debugging
+client.on("message", (msg) => {
+  console.log("💬 New message received:", {
+    from: msg.from,
+    body: msg.body.substring(0, 50) + (msg.body.length > 50 ? "..." : ""),
+    type: msg.type,
+  });
 });
 
 // Middleware
@@ -229,10 +255,25 @@ app.post("/create-group", async (req, res) => {
     const clientNumber = formatWhatsAppNumber(phone);
     console.log("📱 Formatted client phone number:", clientNumber);
 
-    // Prepare participants
+    // Prepare participants - ensure no duplicates
     const participants = [formattedAdminNumber, clientNumber, ...DESIGNERS];
-    console.log("👥 Group participants:", participants);
-    console.log("📊 Total participants:", participants.length);
+    const uniqueParticipants = [...new Set(participants)]; // Remove duplicates
+
+    console.log("👥 Group participants (before deduplication):", participants);
+    console.log(
+      "👥 Group participants (after deduplication):",
+      uniqueParticipants
+    );
+    console.log("📊 Total participants:", uniqueParticipants.length);
+
+    // Check if we have enough unique participants
+    if (uniqueParticipants.length < 2) {
+      console.error("❌ Not enough unique participants for group creation");
+      return res.status(400).json({
+        error: "Not enough unique participants",
+        message: "يجب أن يكون هناك مشاركين مختلفين على الأقل",
+      });
+    }
 
     console.log("🏗️ Creating group with options:", {
       name: groupName,
@@ -241,7 +282,7 @@ app.post("/create-group", async (req, res) => {
     });
 
     // Create group with settings to allow all members to send messages
-    const group = await client.createGroup(groupName, participants, {
+    const group = await client.createGroup(groupName, uniqueParticipants, {
       restrict: false, // Allow all members to edit group info
       announce: false, // Allow all members to send messages
     });
@@ -249,7 +290,7 @@ app.post("/create-group", async (req, res) => {
     console.log("✅ Group created successfully:", {
       id: group.id._serialized,
       name: groupName,
-      participantCount: participants.length,
+      participantCount: uniqueParticipants.length,
     });
 
     // Return success immediately after group creation
@@ -288,7 +329,7 @@ app.post("/create-group", async (req, res) => {
           const groupData = {
             id: group.id._serialized,
             name: groupName,
-            participants: participants,
+            participants: uniqueParticipants,
             createdAt: new Date().toISOString(),
             clientNumber: clientNumber,
           };
