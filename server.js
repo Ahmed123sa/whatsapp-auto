@@ -300,7 +300,7 @@ app.post("/create-group", async (req, res) => {
       });
     }
 
-    if (!group.id || !group.id._serialized) {
+    if (!group.gid || !group.gid._serialized) {
       console.error("❌ Group creation failed - invalid group object:", group);
       return res.status(500).json({
         error: "Failed to create group",
@@ -310,7 +310,7 @@ app.post("/create-group", async (req, res) => {
     }
 
     console.log("✅ Group created successfully:", {
-      id: group.id._serialized,
+      id: group.gid._serialized,
       name: groupName,
       participantCount: uniqueParticipants.length,
     });
@@ -319,7 +319,7 @@ app.post("/create-group", async (req, res) => {
     res.json({
       success: true,
       message: `تم إنشاء الجروب "${groupName}" بنجاح! يمكن لجميع الأعضاء إرسال الرسائل.`,
-      groupId: group.id._serialized,
+      groupId: group.gid._serialized,
       groupName: groupName,
       participants: {
         admin: ADMIN_NUMBER,
@@ -336,7 +336,7 @@ app.post("/create-group", async (req, res) => {
         // Send welcome message
         try {
           const welcomeMessage = `مرحباً! هذا الجروب "${groupName}" مخصص لتصميمك الجديد 🎨\n\nيمكن لجميع الأعضاء إرسال الرسائل في هذا الجروب.`;
-          await client.sendMessage(group.id._serialized, welcomeMessage);
+          await client.sendMessage(group.gid._serialized, welcomeMessage);
           console.log("✓ Welcome message sent successfully");
         } catch (messageError) {
           console.warn(
@@ -349,7 +349,7 @@ app.post("/create-group", async (req, res) => {
         try {
           const database = loadDatabase();
           const groupData = {
-            id: group.id._serialized,
+            id: group.gid._serialized,
             name: groupName,
             participants: uniqueParticipants,
             createdAt: new Date().toISOString(),
