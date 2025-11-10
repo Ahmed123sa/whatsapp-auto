@@ -104,6 +104,84 @@ console.log("   📞 ADMIN_NUMBER:", formattedAdminNumber);
 console.log("   👨‍🎨 DESIGNERS:", DESIGNERS);
 console.log("   📊 Total designers:", DESIGNERS.length);
 
+// Function to detect hosting provider
+function getHostingProvider() {
+  if (process.env.RAILWAY_ENVIRONMENT) return "railway";
+  if (process.env.HEROKU_APP_ID) return "heroku";
+  if (process.env.VERCEL) return "vercel";
+  if (process.env.DIGITAL_OCEAN || process.env.DO_APP_NAME)
+    return "digitalocean";
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME) return "aws";
+  return process.env.HOSTING_PROVIDER || "default";
+}
+
+// Function to get Puppeteer config based on hosting
+function getPuppeteerConfig(provider) {
+  const baseConfig = {
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--disable-gpu",
+    ],
+  };
+
+  console.log(`🌐 Detected hosting provider: ${provider}`);
+
+  switch (provider) {
+    case "railway":
+      baseConfig.args.push(
+        "--disable-web-security",
+        "--disable-features=VizDisplayCompositor",
+        "--disable-ipc-flooding-protection",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-backgrounding-occluded-windows"
+      );
+      console.log("⚙️ Applied Railway-specific Puppeteer config");
+      break;
+
+    case "heroku":
+      baseConfig.args.push("--disable-gpu", "--disable-software-rasterizer");
+      console.log("⚙️ Applied Heroku-specific Puppeteer config");
+      break;
+
+    case "digitalocean":
+      // VPS typically has more resources, minimal args needed
+      baseConfig.args.push("--disable-dev-tools");
+      console.log("⚙️ Applied DigitalOcean-specific Puppeteer config");
+      break;
+
+    case "aws":
+      baseConfig.args.push(
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-background-timer-throttling"
+      );
+      console.log("⚙️ Applied AWS-specific Puppeteer config");
+      break;
+
+    case "vercel":
+    case "netlify":
+      console.log(
+        "⚠️ Warning: Serverless platforms may not be suitable for Puppeteer"
+      );
+      baseConfig.args.push("--disable-gpu");
+      break;
+
+    default:
+      console.log("⚙️ Applied default Puppeteer config");
+      break;
+  }
+
+  return baseConfig;
+}
+
+const hostingProvider = getHostingProvider();
+
 let currentQR = null;
 let clientReady = false;
 
@@ -113,26 +191,7 @@ const client = new Client({
     clientId: "whatsapp-session",
     dataPath: path.join(__dirname, ".wwebjs_auth"),
   }),
-  puppeteer: {
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--single-process",
-      "--disable-gpu",
-      // Railway-specific args
-      "--disable-web-security",
-      "--disable-features=VizDisplayCompositor",
-      "--disable-ipc-flooding-protection",
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
-      "--disable-backgrounding-occluded-windows",
-    ],
-  },
+  puppeteer: getPuppeteerConfig(hostingProvider),
   webVersionCache: {
     type: "remote",
     remotePath:
