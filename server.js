@@ -341,64 +341,11 @@ app.post("/create-group", async (req, res) => {
       participantCount: uniqueParticipants.length,
     });
 
-    // Update group settings to allow all members to send messages
-    try {
-      console.log(
-        "🔧 Updating group settings to allow all members to send messages..."
-      );
-
-      // Wait longer for group to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      // Get group object for settings update
-      const groupChat = await client.getChatById(group.gid._serialized);
-
-      // Set announce to false (allow all members to send messages)
-      let announceRetries = 3;
-      while (announceRetries > 0) {
-        try {
-          await groupChat.setProperty("announce", false);
-          console.log("✓ Group announce setting updated");
-          break;
-        } catch (announceError) {
-          console.warn(
-            `⚠️ Failed to set announce (retries left: ${announceRetries - 1}):`,
-            announceError.message
-          );
-          announceRetries--;
-          if (announceRetries > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
-      }
-
-      // Set restrict to false (allow all members to edit group info)
-      let restrictRetries = 3;
-      while (restrictRetries > 0) {
-        try {
-          await groupChat.setProperty("restrict", false);
-          console.log("✓ Group restrict setting updated");
-          break;
-        } catch (restrictError) {
-          console.warn(
-            `⚠️ Failed to set restrict (retries left: ${restrictRetries - 1}):`,
-            restrictError.message
-          );
-          restrictRetries--;
-          if (restrictRetries > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
-      }
-
-      console.log("✅ Group settings updated successfully");
-    } catch (settingsError) {
-      console.error(
-        "❌ Critical error updating group settings:",
-        settingsError.message
-      );
-      // Log but don't fail the request
-    }
+    // Note: Group settings (announce/restrict) are set during creation
+    // and cannot be modified after in whatsapp-web.js v1.34.1
+    console.log(
+      "ℹ️ Group settings are configured during creation (announce: false, restrict: false)"
+    );
 
     // Promote all participants to admin status
     try {
