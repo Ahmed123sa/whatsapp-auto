@@ -299,10 +299,20 @@ app.post("/create-group", async (req, res) => {
 
     // Create group with settings to allow all members to send messages
     console.log("🔄 Calling client.createGroup...");
-    const group = await client.createGroup(groupName, uniqueParticipants, {
-      restrict: false, // Allow all members to edit group info
-      announce: false, // Allow all members to send messages
-    });
+    let group;
+    try {
+      group = await client.createGroup(groupName, uniqueParticipants, {
+        restrict: false, // Allow all members to edit group info
+        announce: false, // Allow all members to send messages
+      });
+    } catch (createError) {
+      console.warn(
+        "⚠️ First createGroup attempt failed, trying without options:",
+        createError.message
+      );
+      // Fallback: try creating without options
+      group = await client.createGroup(groupName, uniqueParticipants);
+    }
 
     console.log("📦 createGroup result:", group);
 
@@ -337,29 +347,70 @@ app.post("/create-group", async (req, res) => {
         "🔧 Updating group settings to allow all members to send messages..."
       );
 
+      // Wait longer for group to stabilize
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
       // Set announce to false (allow all members to send messages)
-      await client.setGroupProperty(group.gid._serialized, "announce", false);
-      console.log("✓ Group announce setting updated");
+      let announceRetries = 3;
+      while (announceRetries > 0) {
+        try {
+          await client.setGroupProperty(
+            group.gid._serialized,
+            "announce",
+            false
+          );
+          console.log("✓ Group announce setting updated");
+          break;
+        } catch (announceError) {
+          console.warn(
+            `⚠️ Failed to set announce (retries left: ${announceRetries - 1}):`,
+            announceError.message
+          );
+          announceRetries--;
+          if (announceRetries > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+      }
 
       // Set restrict to false (allow all members to edit group info)
-      await client.setGroupProperty(group.gid._serialized, "restrict", false);
-      console.log("✓ Group restrict setting updated");
+      let restrictRetries = 3;
+      while (restrictRetries > 0) {
+        try {
+          await client.setGroupProperty(
+            group.gid._serialized,
+            "restrict",
+            false
+          );
+          console.log("✓ Group restrict setting updated");
+          break;
+        } catch (restrictError) {
+          console.warn(
+            `⚠️ Failed to set restrict (retries left: ${restrictRetries - 1}):`,
+            restrictError.message
+          );
+          restrictRetries--;
+          if (restrictRetries > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+      }
 
       console.log("✅ Group settings updated successfully");
     } catch (settingsError) {
-      console.warn(
-        "⚠️ Could not update group settings:",
+      console.error(
+        "❌ Critical error updating group settings:",
         settingsError.message
       );
-      // Don't fail the request if settings update fails
+      // Log but don't fail the request
     }
 
     // Promote all participants to admin status
     try {
       console.log("👑 Promoting all participants to admin status...");
 
-      // Wait a bit for group to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Wait longer for group to stabilize after settings update
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
       // Get current group info to check participants
       const groupInfo = await client.getChatById(group.gid._serialized);
@@ -372,29 +423,52 @@ app.post("/create-group", async (req, res) => {
           })) || [],
       });
 
-      // Promote client to admin (if not already admin)
-      try {
-        await client.promoteParticipant(group.gid._serialized, clientNumber);
-        console.log(`✓ Promoted client ${clientNumber} to admin`);
-      } catch (clientError) {
-        console.warn(
-          `⚠️ Could not promote client ${clientNumber}:`,
-          clientError.message
-        );
+      // Function to promote participant with retries
+      async function promoteWithRetry(groupId, participantId, participantType) {
+        let retries = 3;
+        while (retries > 0) {
+          try {
+            await client.promoteParticipant(groupId, participantId);
+            console.log(
+              `✓ Promoted ${participantType} ${participantId} to admin`
+            );
+            return true;
+          } catch (promoteError) {
+            console.warn(
+              `⚠️ Failed to promote ${participantType} ${participantId} (retries left: ${
+                retries - 1
+              }):`,
+              promoteError.message
+            );
+            retries--;
+            if (retries > 0) {
+              await new Promise((resolve) => setTimeout(resolve, 3000));
+            }
+          }
+        }
+        return false;
       }
 
-      // Promote all designers to admin (if not already admin)
+      // Promote client to admin
+      const clientPromoted = await promoteWithRetry(
+        group.gid._serialized,
+        clientNumber,
+        "client"
+      );
+
+      // Promote all designers to admin
+      const designerResults = [];
       for (const designer of DESIGNERS) {
-        try {
-          await client.promoteParticipant(group.gid._serialized, designer);
-          console.log(`✓ Promoted designer ${designer} to admin`);
-        } catch (designerError) {
-          console.warn(
-            `⚠️ Could not promote designer ${designer}:`,
-            designerError.message
-          );
-        }
+        const promoted = await promoteWithRetry(
+          group.gid._serialized,
+          designer,
+          "designer"
+        );
+        designerResults.push({ designer, promoted });
       }
+
+      // Wait a bit more before verification
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Verify final admin status
       const finalGroupInfo = await client.getChatById(group.gid._serialized);
@@ -410,10 +484,21 @@ app.post("/create-group", async (req, res) => {
             .map((p) => p.id._serialized) || [],
       });
 
-      console.log("✅ All participants promoted to admin successfully");
+      // Log promotion results
+      console.log("📊 Promotion results:", {
+        clientPromoted,
+        designers: designerResults,
+        totalAdmins:
+          finalGroupInfo.participants?.filter((p) => p.isAdmin).length || 0,
+      });
+
+      console.log("✅ Admin promotion process completed");
     } catch (promoteError) {
-      console.warn("⚠️ Could not promote participants:", promoteError.message);
-      // Don't fail the request if promotion fails
+      console.error(
+        "❌ Critical error in admin promotion:",
+        promoteError.message
+      );
+      // Log but don't fail the request
     }
 
     // Return success immediately after group creation
