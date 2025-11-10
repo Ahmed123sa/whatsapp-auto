@@ -350,15 +350,14 @@ app.post("/create-group", async (req, res) => {
       // Wait longer for group to stabilize
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
+      // Get group object for settings update
+      const groupChat = await client.getChatById(group.gid._serialized);
+
       // Set announce to false (allow all members to send messages)
       let announceRetries = 3;
       while (announceRetries > 0) {
         try {
-          await client.setGroupProperty(
-            group.gid._serialized,
-            "announce",
-            false
-          );
+          await groupChat.setProperty("announce", false);
           console.log("✓ Group announce setting updated");
           break;
         } catch (announceError) {
@@ -377,11 +376,7 @@ app.post("/create-group", async (req, res) => {
       let restrictRetries = 3;
       while (restrictRetries > 0) {
         try {
-          await client.setGroupProperty(
-            group.gid._serialized,
-            "restrict",
-            false
-          );
+          await groupChat.setProperty("restrict", false);
           console.log("✓ Group restrict setting updated");
           break;
         } catch (restrictError) {
@@ -423,19 +418,23 @@ app.post("/create-group", async (req, res) => {
           })) || [],
       });
 
-      // Function to promote participant with retries
-      async function promoteWithRetry(groupId, participantId, participantType) {
+      // Get group chat object for promotion
+      const groupChat = await client.getChatById(group.gid._serialized);
+
+      // Function to promote participants with retries
+      async function promoteWithRetry(participantsToPromote, participantType) {
         let retries = 3;
         while (retries > 0) {
           try {
-            await client.promoteParticipant(groupId, participantId);
+            await groupChat.promoteParticipants(participantsToPromote);
             console.log(
-              `✓ Promoted ${participantType} ${participantId} to admin`
+              `✓ Promoted ${participantType} to admin:`,
+              participantsToPromote
             );
             return true;
           } catch (promoteError) {
             console.warn(
-              `⚠️ Failed to promote ${participantType} ${participantId} (retries left: ${
+              `⚠️ Failed to promote ${participantType} (retries left: ${
                 retries - 1
               }):`,
               promoteError.message
@@ -450,21 +449,19 @@ app.post("/create-group", async (req, res) => {
       }
 
       // Promote client to admin
-      const clientPromoted = await promoteWithRetry(
-        group.gid._serialized,
-        clientNumber,
-        "client"
-      );
+      const clientPromoted = await promoteWithRetry([clientNumber], "client");
 
       // Promote all designers to admin
       const designerResults = [];
-      for (const designer of DESIGNERS) {
-        const promoted = await promoteWithRetry(
-          group.gid._serialized,
-          designer,
-          "designer"
+      if (DESIGNERS.length > 0) {
+        const designersPromoted = await promoteWithRetry(
+          DESIGNERS,
+          "designers"
         );
-        designerResults.push({ designer, promoted });
+        designerResults.push({
+          designers: DESIGNERS,
+          promoted: designersPromoted,
+        });
       }
 
       // Wait a bit more before verification
